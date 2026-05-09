@@ -1,0 +1,318 @@
+import React, { useState } from 'react';
+import {
+  FileText,
+  Search,
+  Plus,
+  Download,
+  Eye,
+  Send,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  XCircle,
+  FileCheck,
+  ArrowRight,
+  Edit3,
+  Trash2,
+  Printer,
+} from 'lucide-react';
+import { useData } from '../../store/DataContext';
+import { useToast } from '../ui/Toast';
+import { useConfirm } from '../ui/ConfirmDialog';
+import { Modal, PrimaryButton, SecondaryButton } from '../ui/Modal';
+import { DocumentEditor, computeTotals, initialDocForm, DocumentFormState } from '../ui/DocumentEditor';
+import { PrintableDocument, printDocument } from '../ui/PrintableDocument';
+import { formatCurrency, formatDate, cn } from '../../lib/utils';
+import { Quote, QuoteStatus } from '../../types';
+
+export const Quotes: React.FC = () => {
+  const { quotes, addQuote, updateQuote, deleteQuote, convertQuoteToInvoice, clients } = useData();
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
+  const [filter, setFilter] = useState<'ALL' | QuoteStatus>('ALL');
+  const [search, setSearch] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Quote | null>(null);
+  const [form, setForm] = useState<DocumentFormState>(initialDocForm());
+  const [previewId, setPreviewId] = useState<string | null>(null);
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'ACCEPTED': return <FileCheck className="w-4 h-4 text-green-500" />;
+      case 'REJECTED': return <XCircle className="w-4 h-4 text-red-500" />;
+      case 'SENT': return <Send className="w-4 h-4 text-blue-500" />;
+      case 'EXPIRED': return <AlertCircle className="w-4 h-4 text-orange-500" />;
+      default: return <Clock className="w-4 h-4 text-slate-400" />;
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'ACCEPTED': return 'Accepté';
+      case 'REJECTED': return 'Refusé';
+      case 'SENT': return 'Envoyé';
+      case 'EXPIRED': return 'Expiré';
+      case 'DRAFT': return 'Brouillon';
+      default: return status;
+    }
+  };
+
+  const filtered = quotes.filter(
+    (q) =>
+      (filter === 'ALL' || q.status === filter) &&
+      (q.quoteNumber.toLowerCase().includes(search.toLowerCase()) ||
+        q.clientName.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm(initialDocForm());
+    setShowForm(true);
+  };
+
+  const openEdit = (q: Quote) => {
+    setEditing(q);
+    setForm({
+      clientId: q.clientId,
+      date: q.date,
+      dueDate: q.expiryDate,
+      taxRate: q.amount > 0 ? Math.round((q.taxAmount / q.amount) * 100) : 20,
+      items: q.items,
+    });
+    setShowForm(true);
+  };
+
+  const handleSubmit = () => {
+    if (!form.clientId) {
+      toast('Sélectionnez un client', 'error');
+      return;
+    }
+    if (form.items.length === 0) {
+      toast('Ajoutez au moins une ligne', 'error');
+      return;
+    }
+    const client = clients.find((c) => c.id === form.clientId);
+    if (!client) return;
+    const totals = computeTotals(form.items, form.taxRate);
+
+    if (editing) {
+      updateQuote(editing.id, {
+        clientId: form.clientId,
+        clientName: client.name,
+        date: form.date,
+        expiryDate: form.dueDate,
+        amount: totals.subtotal,
+        taxAmount: totals.tax,
+        totalAmount: totals.total,
+        items: form.items,
+      });
+      toast('Devis mis à jour');
+    } else {
+      addQuote({
+        clientId: form.clientId,
+        clientName: client.name,
+        date: form.date,
+        expiryDate: form.dueDate,
+        amount: totals.subtotal,
+        taxAmount: totals.tax,
+        totalAmount: totals.total,
+        status: 'DRAFT',
+        items: form.items,
+      });
+      toast('Devis créé');
+    }
+    setShowForm(false);
+  };
+
+  const handleDelete = async (q: Quote) => {
+    const ok = await confirm({
+      title: 'Supprimer ce devis ?',
+      message: `Le devis ${q.quoteNumber} sera supprimé.`,
+      danger: true,
+      confirmLabel: 'Supprimer',
+    });
+    if (ok) {
+      deleteQuote(q.id);
+      toast('Devis supprimé', 'info');
+    }
+  };
+
+  const handleSend = (q: Quote) => {
+    updateQuote(q.id, { status: 'SENT' });
+    toast(`Devis ${q.quoteNumber} envoyé à ${q.clientName}`);
+  };
+
+  const handleConvert = async (q: Quote) => {
+    const ok = await confirm({
+      title: 'Convertir en facture ?',
+      message: `Le devis ${q.quoteNumber} sera transformé en facture. Le statut passera à "Accepté".`,
+      confirmLabel: 'Convertir',
+    });
+    if (ok) {
+      const invoice = convertQuoteToInvoice(q.id);
+      if (invoice) toast(`Facture ${invoice.invoiceNumber} créée`, 'success');
+    }
+  };
+
+  const previewDoc = previewId ? quotes.find((q) => q.id === previewId) : null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Gestion des Devis</h2>
+          <p className="text-slate-500 text-sm">Créez et suivez vos propositions commerciales avant facturation.</p>
+        </div>
+        <div className="flex gap-3">
+          <SecondaryButton onClick={() => toast('Export en cours...', 'info')}>
+            <span className="flex items-center gap-2"><Download className="w-4 h-4" />Exporter</span>
+          </SecondaryButton>
+          <PrimaryButton onClick={openCreate}>
+            <span className="flex items-center gap-2"><Plus className="w-4 h-4" />Nouveau Devis</span>
+          </PrimaryButton>
+        </div>
+      </div>
+
+      <div className="premium-card">
+        <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Devis #, Client..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:bg-white focus:border-darbis-blue/20 transition-all"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {(['ALL', 'DRAFT', 'SENT', 'ACCEPTED', 'REJECTED'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all',
+                  filter === s ? 'bg-darbis-blue text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                )}
+              >
+                {s === 'ALL' ? 'Tous' : getStatusLabel(s)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Référence</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Client</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Validité</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Montant TTC</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Statut</th>
+                <th className="px-6 py-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filtered.map((quote) => (
+                <tr key={quote.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <td className="px-6 py-5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-slate-100 rounded-lg text-slate-500">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold text-slate-900">{quote.quoteNumber}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-5">
+                    <span className="text-sm font-medium text-slate-700">{quote.clientName}</span>
+                  </td>
+                  <td className="px-6 py-5 text-sm text-slate-500">{formatDate(quote.date)}</td>
+                  <td className="px-6 py-5 text-sm text-slate-500">{formatDate(quote.expiryDate)}</td>
+                  <td className="px-6 py-5 font-bold text-slate-900">{formatCurrency(quote.totalAmount)}</td>
+                  <td className="px-6 py-5">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(quote.status)}
+                      <span className={cn(
+                        'text-[10px] font-bold uppercase tracking-wider',
+                        quote.status === 'ACCEPTED' ? 'text-green-600' :
+                        quote.status === 'REJECTED' ? 'text-red-600' :
+                        quote.status === 'SENT' ? 'text-blue-600' : 'text-slate-500'
+                      )}>
+                        {getStatusLabel(quote.status)}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-5 text-right">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => setPreviewId(quote.id)} className="p-2 text-slate-400 hover:text-darbis-blue hover:bg-slate-100 rounded-lg" title="Aperçu">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      {quote.status === 'DRAFT' && (
+                        <button onClick={() => handleSend(quote)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Envoyer">
+                          <Send className="w-4 h-4" />
+                        </button>
+                      )}
+                      {quote.status !== 'ACCEPTED' && (
+                        <button onClick={() => handleConvert(quote)} className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg" title="Convertir en facture">
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button onClick={() => openEdit(quote)} className="p-2 text-slate-400 hover:text-darbis-blue hover:bg-slate-100 rounded-lg" title="Modifier">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(quote)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Supprimer">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-6 py-16 text-center text-sm text-slate-400">
+                    Aucun devis trouvé
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Modal
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        title={editing ? 'Modifier le devis' : 'Nouveau devis'}
+        subtitle={editing?.quoteNumber}
+        size="xl"
+        footer={
+          <>
+            <SecondaryButton onClick={() => setShowForm(false)}>Annuler</SecondaryButton>
+            <PrimaryButton onClick={handleSubmit}>{editing ? 'Enregistrer' : 'Créer le devis'}</PrimaryButton>
+          </>
+        }
+      >
+        <DocumentEditor form={form} setForm={setForm} dueDateLabel="Date de validité" />
+      </Modal>
+
+      <Modal
+        open={!!previewId}
+        onClose={() => setPreviewId(null)}
+        title="Aperçu du devis"
+        size="xl"
+        footer={
+          <>
+            <SecondaryButton onClick={() => setPreviewId(null)}>Fermer</SecondaryButton>
+            <PrimaryButton onClick={printDocument}>
+              <span className="flex items-center gap-2"><Printer className="w-4 h-4" />Imprimer / PDF</span>
+            </PrimaryButton>
+          </>
+        }
+      >
+        {previewDoc && <PrintableDocument type="QUOTE" document={previewDoc} />}
+      </Modal>
+    </div>
+  );
+};
