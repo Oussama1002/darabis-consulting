@@ -5,6 +5,7 @@ import {
   Invoice,
   Payment,
   Schedule,
+  PaymentMethod,
   Service,
   Supplier,
   Expense,
@@ -81,7 +82,11 @@ interface DataContextValue {
   // Schedules
   schedules: Schedule[];
   addSchedule: (s: Omit<Schedule, 'id'>) => Schedule;
-  payInstallment: (scheduleId: string, installmentId: string) => void;
+  payInstallment: (
+    scheduleId: string,
+    installmentId: string,
+    detail?: { method?: PaymentMethod; reference?: string; date?: string; notes?: string }
+  ) => boolean;
   deleteSchedule: (id: string) => void;
 
   // Suppliers
@@ -332,6 +337,33 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { ...inv, paidAmount: Math.max(0, newPaid), status };
       })
     );
+    setClients((prev) =>
+      prev.map((c) => {
+        if (c.id !== pay.clientId) return c;
+        const remainingForClient = payments.filter((p) => p.id !== id && p.clientId === c.id);
+        const sorted = [...remainingForClient].sort((a, b) => b.date.localeCompare(a.date));
+        return {
+          ...c,
+          totalPaid: Math.max(0, c.totalPaid - pay.amount),
+          balance: c.balance + pay.amount,
+          lastPaymentDate: sorted[0]?.date,
+        };
+      })
+    );
+    if (pay.scheduleId && pay.installmentId) {
+      setSchedules((prev) =>
+        prev.map((s) => {
+          if (s.id !== pay.scheduleId) return s;
+          const installments = s.installments.map((i) =>
+            i.id === pay.installmentId
+              ? { ...i, status: 'PENDING' as const, paidDate: undefined, paymentId: undefined }
+              : i
+          );
+          const remaining = installments.filter((x) => x.status !== 'PAID').reduce((sum, x) => sum + x.amount, 0);
+          return { ...s, installments, remainingAmount: remaining };
+        })
+      );
+    }
     addAuditLog('Paiement annulé');
   };
 
@@ -342,18 +374,44 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addAuditLog('Échéancier créé', ns.invoiceNumber);
     return ns;
   };
-  const payInstallment: DataContextValue['payInstallment'] = (scheduleId, installmentId) => {
+  const payInstallment: DataContextValue['payInstallment'] = (scheduleId, installmentId, detail) => {
+    const sch = schedules.find((s) => s.id === scheduleId);
+    const inst = sch?.installments.find((i) => i.id === installmentId);
+    if (!sch || !inst || inst.status === 'PAID') return false;
+
+    const inv = invoices.find((i) => i.id === sch.invoiceId);
+    const remainingInv = inv ? inv.totalAmount - inv.paidAmount : 0;
+    if (!inv || inst.amount > remainingInv + 0.01) return false;
+
+    const payDate = detail?.date ?? new Date().toISOString().split('T')[0];
+    const np = addPayment({
+      invoiceId: sch.invoiceId,
+      invoiceNumber: sch.invoiceNumber,
+      clientId: sch.clientId,
+      clientName: sch.clientName,
+      date: payDate,
+      amount: inst.amount,
+      method: detail?.method ?? 'TRANSFER',
+      reference: detail?.reference,
+      notes: detail?.notes,
+      scheduleId,
+      installmentId,
+    });
+
     setSchedules((prev) =>
       prev.map((s) => {
         if (s.id !== scheduleId) return s;
         const installments = s.installments.map((i) =>
-          i.id === installmentId ? { ...i, status: 'PAID' as const } : i
+          i.id === installmentId
+            ? { ...i, status: 'PAID' as const, paidDate: payDate, paymentId: np.id }
+            : i
         );
-        const remaining = installments.filter((i) => i.status !== 'PAID').reduce((sum, i) => sum + i.amount, 0);
+        const remaining = installments.filter((x) => x.status !== 'PAID').reduce((sum, x) => sum + x.amount, 0);
         return { ...s, installments, remainingAmount: remaining };
       })
     );
-    addAuditLog('Échéance payée');
+    addAuditLog(`Échéance encaissée (${sch.invoiceNumber})`, sch.invoiceNumber);
+    return true;
   };
   const deleteSchedule: DataContextValue['deleteSchedule'] = (id) => {
     setSchedules((p) => p.filter((s) => s.id !== id));

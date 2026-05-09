@@ -1,6 +1,6 @@
 import React from 'react';
 import { Quote, Invoice, Payment } from '../../types';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { formatCurrency, formatDate, paymentMethodLabel } from '../../lib/utils';
 
 interface DocProps {
   type: 'QUOTE' | 'INVOICE' | 'RECEIPT';
@@ -114,15 +114,12 @@ export const PrintableDocument: React.FC<DocProps> = ({ type, document }) => {
           <div className="grid grid-cols-2 gap-6">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Mode de paiement</p>
-              <p className="text-lg font-bold text-slate-900">
-                {(document as Payment).method === 'CASH'
-                  ? 'Espèces'
-                  : (document as Payment).method === 'TRANSFER'
-                  ? 'Virement'
-                  : 'Chèque'}
-              </p>
+              <p className="text-lg font-bold text-slate-900">{paymentMethodLabel((document as Payment).method)}</p>
               {(document as Payment).reference && (
                 <p className="text-xs text-slate-500 mt-1">Réf : {(document as Payment).reference}</p>
+              )}
+              {(document as Payment).notes && (
+                <p className="text-xs text-slate-500 mt-2">Note : {(document as Payment).notes}</p>
               )}
             </div>
             <div className="text-right">

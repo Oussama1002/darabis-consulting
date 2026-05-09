@@ -65,7 +65,7 @@ export interface InvoiceItem {
   total: number;
 }
 
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CHECK';
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CHECK' | 'CARD' | 'OTHER';
 
 export interface Payment {
   id: string;
@@ -77,6 +77,10 @@ export interface Payment {
   amount: number;
   method: PaymentMethod;
   reference?: string;
+  notes?: string;
+  /** Lien vers échéancier si paiement issu d'une échéance */
+  scheduleId?: string;
+  installmentId?: string;
 }
 
 export interface CollectionAction {
@@ -88,6 +92,8 @@ export interface CollectionAction {
   note: string;
 }
 
+export type SchedulePeriodicity = 'MONTHLY' | 'BIMONTHLY' | 'QUARTERLY';
+
 export interface Schedule {
   id: string;
   clientId: string;
@@ -97,6 +103,9 @@ export interface Schedule {
   totalAmount: number;
   remainingAmount: number;
   installments: Installment[];
+  periodicity?: SchedulePeriodicity;
+  notes?: string;
+  createdAt?: string;
 }
 
 export interface Installment {
@@ -104,6 +113,8 @@ export interface Installment {
   dueDate: string;
   amount: number;
   status: 'PENDING' | 'PAID' | 'OVERDUE';
+  paidDate?: string;
+  paymentId?: string;
 }
 
 export type ServiceCategory = 'CONSULTING' | 'FORMATION' | 'AUDIT' | 'ACCOMPAGNEMENT' | 'AUTRE';

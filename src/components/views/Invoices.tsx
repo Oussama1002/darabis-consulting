@@ -390,6 +390,8 @@ export const Invoices: React.FC = () => {
                   <option value="TRANSFER">Virement</option>
                   <option value="CASH">Espèces</option>
                   <option value="CHECK">Chèque</option>
+                  <option value="CARD">Carte bancaire</option>
+                  <option value="OTHER">Autre</option>
                 </Select>
               </Field>
               <Field label="Référence">
