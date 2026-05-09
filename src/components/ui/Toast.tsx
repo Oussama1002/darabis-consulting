@@ -30,7 +30,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed top-6 right-6 z-[100] space-y-2 pointer-events-none">
+      <div className="fixed left-4 right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] top-auto z-[100] space-y-2 pointer-events-none sm:left-auto sm:right-6 sm:top-6 sm:bottom-auto max-w-none sm:max-w-sm ml-auto">
         <AnimatePresence>
           {toasts.map((t) => {
             const Icon = t.type === 'success' ? CheckCircle2 : t.type === 'error' ? AlertCircle : Info;

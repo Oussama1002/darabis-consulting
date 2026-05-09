@@ -204,35 +204,38 @@ export const SettingsView: React.FC = () => {
         <button
           type="button"
           onClick={handleSave}
-          className="bg-darbis-blue text-white px-6 py-2.5 rounded-xl flex items-center gap-2 text-sm font-semibold hover:opacity-95 transition-all shadow-lg active:scale-[0.98]"
+          className="bg-darbis-blue text-white w-full sm:w-auto justify-center px-6 py-3 sm:py-2.5 rounded-xl flex items-center gap-2 text-sm font-semibold hover:opacity-95 transition-all shadow-lg active:scale-[0.98] touch-manipulation min-h-[44px]"
         >
           <Save className="w-4 h-4" />
           Enregistrer
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <aside className="lg:col-span-1 space-y-1">
-          {sidebarItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setSection(item.id)}
-              className={cn(
-                'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left',
-                section === item.id
-                  ? 'bg-white text-darbis-blue shadow-sm border border-slate-100'
-                  : 'text-slate-500 hover:bg-slate-50 border border-transparent'
-              )}
-            >
-              <item.icon className="w-4 h-4 shrink-0" />
-              {item.label}
-            </button>
-          ))}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
+        <aside className="lg:col-span-1 lg:space-y-1">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 lg:hidden">Rubrique</p>
+          <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-1 -mx-1 px-1 lg:mx-0 lg:px-0 scrollbar-hide snap-x snap-mandatory lg:snap-none touch-pan-x">
+            {sidebarItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setSection(item.id)}
+                className={cn(
+                  'flex items-center gap-2 lg:gap-3 px-4 py-3 min-h-[44px] rounded-xl text-sm font-bold transition-all text-left shrink-0 snap-start lg:w-full whitespace-nowrap lg:whitespace-normal touch-manipulation',
+                  section === item.id
+                    ? 'bg-white text-darbis-blue shadow-sm border border-slate-100'
+                    : 'text-slate-500 hover:bg-slate-50 border border-transparent bg-slate-50/80 lg:bg-transparent'
+                )}
+              >
+                <item.icon className="w-4 h-4 shrink-0" />
+                {item.label}
+              </button>
+            ))}
+          </div>
         </aside>
 
-        <div className="lg:col-span-3 space-y-8">
-          <div className="premium-card p-8">
+        <div className="lg:col-span-3 space-y-6 lg:space-y-8 min-w-0">
+          <div className="premium-card p-4 sm:p-6 lg:p-8">
             <h3 className="text-lg font-bold text-slate-900 mb-2 border-b border-slate-50 pb-4">{panelTitle}</h3>
 
             {section === 'company' && (

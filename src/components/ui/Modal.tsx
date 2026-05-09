@@ -47,21 +47,23 @@ export const Modal: React.FC<ModalProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm"
           onClick={onClose}
         >
           <motion.div
-            initial={{ scale: 0.95, y: 20, opacity: 0 }}
+            initial={{ scale: 0.98, y: 12, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
-            exit={{ scale: 0.95, y: 20, opacity: 0 }}
+            exit={{ scale: 0.98, y: 12, opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={(e) => e.stopPropagation()}
             className={cn(
-              'w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]',
+              'w-full bg-white shadow-2xl overflow-hidden flex flex-col min-h-0',
+              'max-h-[100dvh] sm:max-h-[90vh] rounded-none sm:rounded-2xl',
+              'sm:max-w-[calc(100vw-2rem)]',
               sizeClass
             )}
           >
-            <div className="p-6 border-b border-slate-100 flex items-start justify-between gap-4">
+            <div className="p-4 sm:p-6 pt-[max(1rem,env(safe-area-inset-top))] border-b border-slate-100 flex items-start justify-between gap-4 shrink-0">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">{title}</h2>
                 {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
@@ -73,9 +75,9 @@ export const Modal: React.FC<ModalProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1">{children}</div>
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 overscroll-contain">{children}</div>
             {footer && (
-              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
+              <div className="p-3 sm:p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 shrink-0 pb-safe">
                 {footer}
               </div>
             )}
